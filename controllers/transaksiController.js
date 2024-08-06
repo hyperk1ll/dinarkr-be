@@ -1,5 +1,5 @@
 
-const { Transaksi, getAllTransaksi, getTransaksiBeli, getTransaksiJual } = require('../models/Transaksi');
+const { Transaksi, getAllTransaksi, getTransaksiById, getTransaksiBeli, getTransaksiJual, editTransaksi, deleteTransaksi } = require('../models/Transaksi');
 
 
 const CreateTransaksi = async (req, res) => {
@@ -27,6 +27,32 @@ const GetAllTransaksi = async (req, res) => {
             error: false,
             data: transaksi
         });
+    } catch (error) {
+        res.status(500).json({
+            error: true,
+            message: 'Gagal mendapatkan data transaksi'
+        });
+    }
+}
+
+const GetTransaksiById = async (req, res) => {
+    const { id_transaksi } = req.params;
+    try {
+        const transaksi = await getTransaksiById(id_transaksi);
+
+        if (transaksi.length === 0) {
+            res.status(404).json({
+                error: true,
+                message: 'Data transaksi tidak ditemukan'
+            });
+        }
+        else {
+
+            res.status(200).json({
+                error: false,
+                data: transaksi
+            });
+        }
     } catch (error) {
         res.status(500).json({
             error: true,
@@ -65,4 +91,41 @@ const GetTransaksiJual = async (req, res) => {
     }
 }
 
-module.exports = { CreateTransaksi, GetAllTransaksi, GetTransaksiBeli, GetTransaksiJual };
+const EditTransaksi = async (req, res) => {
+    const { id_transaksi } = req.params;
+    const { tipe_transaksi, pembelian_dari, tanggal_transaksi, nama_pembeli, detail } = req.body;
+    try {
+        const transaksi = await editTransaksi(id_transaksi, tipe_transaksi, pembelian_dari, tanggal_transaksi, nama_pembeli, detail);
+        res.status(200).json({
+            error: false,
+            message: 'Data transaksi berhasil diubah',
+            data: transaksi
+        });
+    }
+    catch (error) {
+        res.status(500).json({
+            error: true,
+            message: 'Gagal mengubah data transaksi'
+        });
+    }
+}
+
+const DeleteTransaksi = async (req, res) => {
+    const { id_transaksi } = req.params;
+    try {
+        const transaksi = await deleteTransaksi(id_transaksi);
+        res.status(200).json({
+            error: false,
+            message: 'Data transaksi berhasil dihapus',
+            data: transaksi
+        });
+    }
+    catch (error) {
+        res.status(500).json({
+            error: true,
+            message: 'Gagal menghapus data transaksi'
+        });
+    }
+}
+
+module.exports = { CreateTransaksi, GetAllTransaksi, GetTransaksiById, GetTransaksiBeli, GetTransaksiJual, EditTransaksi, DeleteTransaksi };
