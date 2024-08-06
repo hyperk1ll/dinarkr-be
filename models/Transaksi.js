@@ -1,14 +1,14 @@
 const pool = require('../config/db');
 
-const Transaksi = async (tipe_transaksi, tanggal_transaksi, nama_pembeli, details) => {
+const Transaksi = async (tipe_transaksi, pembelian_dari, tanggal_transaksi, nama_pembeli, details) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN'); // Memulai transaksi
 
         // Eksekusi query pertama
         const result = await client.query(
-            'INSERT INTO transaksi (tipe_transaksi, tanggal_transaksi, nama_pembeli) VALUES ($1, $2, $3) RETURNING id_transaksi',
-            [tipe_transaksi, tanggal_transaksi, nama_pembeli]
+            'INSERT INTO transaksi (tipe_transaksi, pembelian_dari, tanggal_transaksi, nama_pembeli) VALUES ($1, $2, $3, $4) RETURNING id_transaksi',
+            [tipe_transaksi, pembelian_dari, tanggal_transaksi, nama_pembeli]
         );
         const id_transaksi = result.rows[0].id_transaksi;
 
@@ -43,18 +43,41 @@ const Transaksi = async (tipe_transaksi, tanggal_transaksi, nama_pembeli, detail
     }
 }
 
+const getAllTransaksi = async () => {
+    const result = await pool.query(`
+      SELECT t.id_transaksi, t.tipe_transaksi, t.pembelian_dari, t.tanggal_transaksi, t.nama_pembeli,
+             d.id_dinar, d.jumlah, d.harga_satuan
+      FROM transaksi t
+      LEFT JOIN detail_transaksi d ON t.id_transaksi = d.id_transaksi
+      ORDER BY t.tanggal_transaksi DESC
+    `);
+    return result.rows;
+}
+
 const getTransaksiBeli = async () => {
     const result = await pool.query(
-        `SELECT * FROM transaksi WHERE tipe_transaksi = 'beli'`
+        `SELECT t.id_transaksi, t.tipe_transaksi, t.pembelian_dari, t.tanggal_transaksi, t.nama_pembeli,
+            d.id_dinar, d.jumlah, d.harga_satuan
+            FROM transaksi t
+            LEFT JOIN detail_transaksi d ON t.id_transaksi = d.id_transaksi
+            WHERE t.tipe_transaksi = 'beli'
+            ORDER BY t.tanggal_transaksi DESC;
+        `
     );
     return result.rows;
 }
 
 const getTransaksiJual = async () => {
     const result = await pool.query(
-        `SELECT * FROM transaksi WHERE tipe_transaksi = 'jual'`
+        `SELECT t.id_transaksi, t.tipe_transaksi, t.pembelian_dari, t.tanggal_transaksi, t.nama_pembeli,
+            d.id_dinar, d.jumlah, d.harga_satuan
+            FROM transaksi t
+            LEFT JOIN detail_transaksi d ON t.id_transaksi = d.id_transaksi
+            WHERE t.tipe_transaksi = 'jual'
+            ORDER BY t.tanggal_transaksi DESC;
+        `
     );
     return result.rows;
 }
 
-module.exports = { Transaksi, getTransaksiBeli, getTransaksiJual };
+module.exports = { Transaksi, getAllTransaksi, getTransaksiBeli, getTransaksiJual };
