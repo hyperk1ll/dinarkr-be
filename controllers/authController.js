@@ -25,8 +25,8 @@ const login = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
-        const token = jwt.sign({ id: user.id, nama_user: user.nama }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.status(200).json({ token, nama: user.nama });
+        const token = jwt.sign({ id: user.id, nama_user: user.nama, email: email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.status(200).json({ token, nama: user.nama, email: user.email });
     } catch (error) {
         res.status(500).json({ error: 'Something went wrong' });
     }
@@ -34,8 +34,8 @@ const login = async (req, res) => {
 
 const checkSession = (req, res) => {
     res.status(200).json({ user: req.user });
-  };
-  
+};
+
 const logout = (req, res) => {
     res.status(200).json({ message: 'Logged out successfully' });
 };
