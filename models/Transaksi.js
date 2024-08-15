@@ -157,13 +157,13 @@ const editTransaksi = async (id_transaksi, tipe_transaksi, pembelian_dari, tangg
             if (oldDetail) {
                 processedProductIds.add(oldDetail.id_dinar); // Tandai produk lama telah diproses
                 if (oldTipeTransaksi === "beli" || oldTipeTransaksi === "hadiah") {
-                    // Kurangi stok untuk produk lama
+                    // Kurangi stok produk lama
                     await client.query(
                         'UPDATE produk_dinar SET jumlah_stok = jumlah_stok - $1, terakhir_diperbarui = CURRENT_TIMESTAMP WHERE id = $2',
                         [oldJumlah, oldDetail.id_dinar]
                     );
                 } else if (oldTipeTransaksi === "jual") {
-                    // Tambahkan stok untuk produk lama
+                    // Tambahkan stok produk lama
                     await client.query(
                         'UPDATE produk_dinar SET jumlah_stok = jumlah_stok + $1, terakhir_diperbarui = CURRENT_TIMESTAMP WHERE id = $2',
                         [oldJumlah, oldDetail.id_dinar]
@@ -171,19 +171,17 @@ const editTransaksi = async (id_transaksi, tipe_transaksi, pembelian_dari, tangg
                 }
             }
 
-            // Update stok untuk produk baru jika diperlukan
-            if (jumlahSelisih !== 0) {
-                if (tipe_transaksi === "beli" || tipe_transaksi === "hadiah") {
-                    await client.query(
-                        'UPDATE produk_dinar SET jumlah_stok = jumlah_stok + $1, terakhir_diperbarui = CURRENT_TIMESTAMP WHERE id = $2',
-                        [jumlahSelisih, detail.id_dinar]
-                    );
-                } else if (tipe_transaksi === "jual") {
-                    await client.query(
-                        'UPDATE produk_dinar SET jumlah_stok = jumlah_stok - $1, terakhir_diperbarui = CURRENT_TIMESTAMP WHERE id = $2',
-                        [jumlahSelisih, detail.id_dinar]
-                    );
-                }
+            // Perbarui stok berdasarkan tipe transaksi baru
+            if (tipe_transaksi === "beli" || tipe_transaksi === "hadiah") {
+                await client.query(
+                    'UPDATE produk_dinar SET jumlah_stok = jumlah_stok + $1, terakhir_diperbarui = CURRENT_TIMESTAMP WHERE id = $2',
+                    [detail.jumlah, detail.id_dinar]
+                );
+            } else if (tipe_transaksi === "jual") {
+                await client.query(
+                    'UPDATE produk_dinar SET jumlah_stok = jumlah_stok - $1, terakhir_diperbarui = CURRENT_TIMESTAMP WHERE id = $2',
+                    [detail.jumlah, detail.id_dinar]
+                );
             }
         }
 
@@ -215,8 +213,6 @@ const editTransaksi = async (id_transaksi, tipe_transaksi, pembelian_dari, tangg
         client.release(); // Melepas koneksi kembali ke pool
     }
 };
-
-
 
 
 
