@@ -5,10 +5,14 @@ const Transaksi = async (tipe_transaksi, pembelian_dari, tanggal_transaksi, nama
     try {
         await client.query('BEGIN'); // Memulai transaksi
 
+        // Mengurangi 1 jam dari tanggal_transaksi
+        const adjustedTanggalTransaksi = new Date(new Date(tanggal_transaksi).getTime() - 60 * 60 * 1000);
+
         // Eksekusi query pertama
         const result = await client.query(
-            'INSERT INTO transaksi (tipe_transaksi, pembelian_dari, tanggal_transaksi, nama_pembeli) VALUES ($1, $2, $3, $4) RETURNING id_transaksi',
-            [tipe_transaksi, pembelian_dari, tanggal_transaksi, nama_pembeli]
+            `INSERT INTO transaksi (tipe_transaksi, pembelian_dari, tanggal_transaksi, nama_pembeli) 
+            VALUES ($1, $2, $3 AT TIME ZONE 'Asia/Singapore', $4) RETURNING id_transaksi`,
+            [tipe_transaksi, pembelian_dari, adjustedTanggalTransaksi, nama_pembeli]
         );
         const id_transaksi = result.rows[0].id_transaksi;
 
@@ -125,6 +129,10 @@ const editTransaksi = async (id_transaksi, tipe_transaksi, pembelian_dari, tangg
             [id_transaksi]
         );
 
+        // Mengurangi 1 jam dari tanggal_transaksi
+        // const adjustedTanggalTransaksi = new Date(new Date(tanggal_transaksi).getTime() - 60 * 60 * 1000);
+
+
         // Eksekusi query untuk update transaksi
         await client.query(
             'UPDATE transaksi SET tipe_transaksi = $1, pembelian_dari = $2, tanggal_transaksi = $3, nama_pembeli = $4 WHERE id_transaksi = $5',
@@ -215,8 +223,6 @@ const editTransaksi = async (id_transaksi, tipe_transaksi, pembelian_dari, tangg
 };
 
 
-
-
 const deleteTransaksi = async (id_transaksi) => {
     const client = await pool.connect();
     try {
@@ -242,7 +248,7 @@ const deleteTransaksi = async (id_transaksi) => {
 
         // Update stok_dinar sebelum menghapus transaksi
         for (const detail of details) {
-            if (tipe_transaksi === 'beli') {
+            if (tipe_transaksi === 'beli' || tipe_transaksi === 'hadiah') {
                 await client.query(
                     'UPDATE produk_dinar SET jumlah_stok = jumlah_stok - $1 WHERE id = $2',
                     [detail.jumlah, detail.id_dinar]
