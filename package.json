@@ -4,20 +4,24 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start-dev" : "nodemon index.js",
+    "start-dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "vercel-build": "echo hello"
-
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "axios": "^1.19.0",
     "bcryptjs": "^2.4.3",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.6.0",
     "nodemon": "^3.1.4",
-    "pg": "^8.12.0"
+    "pg": "^8.12.0",
+    "puppeteer": "^25.8.0"
   }
 }

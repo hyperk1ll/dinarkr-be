@@ -31,4 +31,24 @@ const updateDinar = async (id, nama, harga_konsumen, harga_buyback, keterangan, 
     return result.rows[0];
 }
 
-module.exports = { AddDinar, getDinar, getDinarById, updateDinar };
+const getRiwayatHargaById = async (id) => {
+    const result = await pool.query(
+        'SELECT * FROM riwayat_harga_dinar WHERE id_dinar = $1 ORDER BY tanggal ASC',
+        [id]
+    );
+    return result.rows;
+};
+
+const getHargaByDateAndId = async (id, date) => {
+    // Cari harga terakhir untuk id_dinar ini pada atau sebelum tanggal/waktu yang diminta
+    const result = await pool.query(
+        `SELECT harga_konsumen, harga_buyback 
+         FROM riwayat_harga_dinar 
+         WHERE id_dinar = $1 AND tanggal <= $2::timestamp
+         ORDER BY tanggal DESC LIMIT 1`,
+        [id, date]
+    );
+    return result.rows[0];
+};
+
+module.exports = { AddDinar, getDinar, getDinarById, updateDinar, getRiwayatHargaById, getHargaByDateAndId };

@@ -4,6 +4,7 @@ const authRoutes = require('./routes/authRoutes');
 const produkDinarRoutes = require('./routes/produkDinarRoutes');
 const transaksiRoutes = require('./routes/transaksiRoutes');
 require('dotenv').config();
+require('./utils/scheduler');
 
 const app = express();
 
