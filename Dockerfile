@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Set working directory
 WORKDIR /app
@@ -12,8 +12,8 @@ RUN npm install
 # Copy application source code
 COPY . .
 
-# Expose port (default for express is usually 5000 in this project based on standard setups)
-EXPOSE 5000
+# Expose port (default for express is usually 7000 in this project based on standard setups)
+EXPOSE 7000
 
 # Start the application
 CMD ["npm", "start"]
