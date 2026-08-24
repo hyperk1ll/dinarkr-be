@@ -1,0 +1,15 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger VPS Webhook
+        run: |
+          curl -X POST http://vps1.hype-lab.cloud:3001/deploy/backend \
+          -H "x-deploy-token: dinar-cicd-secret-123"
