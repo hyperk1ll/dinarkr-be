@@ -4,7 +4,7 @@
 cd "$(dirname "$0")" || exit
 
 echo "Starting Backend Deployment..."
-git pull origin master
+git pull origin main
 npm install
 pm2 restart backend --update-env
 echo "Backend Deployment Complete!"
