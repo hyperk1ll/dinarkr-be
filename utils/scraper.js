@@ -8,91 +8,146 @@ const months = {
     'September': '09', 'Oktober': '10', 'November': '11', 'Desember': '12'
 };
 
+/**
+ * Mengambil data produk dinar dari API resmi dinarkr.com
+ */
+async function fetchFromOfficialApi() {
+    const [tabelRes, prodRes, paketRes] = await Promise.all([
+        axios.get('https://admin.dinarkr.com/api/v1/tabel-harga', { timeout: 10000 }),
+        axios.get('https://admin.dinarkr.com/api/v1/products', { timeout: 10000 }).catch(() => ({ data: { data: [] } })),
+        axios.get('https://admin.dinarkr.com/api/v1/pakets', { timeout: 10000 }).catch(() => ({ data: { data: [] } }))
+    ]);
+
+    const rawList = tabelRes.data?.data || [];
+    const meta = tabelRes.data?.meta || {};
+    const webTimestamp = meta.updated_at ? new Date(meta.updated_at) : new Date();
+    const todayStrFromWeb = meta.tanggal || (meta.updated_at ? meta.updated_at.split('T')[0] : new Date().toISOString().split('T')[0]);
+
+    const prodMap = {};
+    (prodRes.data?.data || []).forEach(p => { prodMap[p.slug] = p; });
+    (paketRes.data?.data || []).forEach(p => { prodMap['paket-' + p.key] = p; });
+
+    const products = rawList.map(item => {
+        const extra = prodMap[item.slug];
+        let altName = null;
+        if (item.label === 'Paket Exclusive') altName = 'Paket Dinar Exclusive 1 Set';
+        if (item.label === 'Paket Luxury') altName = 'Paket Dinar Luxury 1 Set';
+
+        return {
+            name: item.label,
+            altName,
+            slug: item.slug,
+            konsumen: Number(item.jual),
+            buyback: Number(item.buyback),
+            image: extra?.gridImg || extra?.img || null,
+            keterangan: extra?.subheadline || extra?.desc || 'Dinar Khoirur Rooziqiin'
+        };
+    });
+
+    return { products, webTimestamp, todayStrFromWeb };
+}
+
+/**
+ * Fallback: scraping dari HTML lama dinarkr jika API tidak tersedia
+ */
+async function fetchFromHtmlFallback() {
+    const response = await axios.get('https://dinarkr.com/main/harga-emas.php?action=dkrharga', { timeout: 10000 });
+    const $ = cheerio.load(response.data);
+    const products = [];
+
+    let webTimestamp = null;
+    let todayStrFromWeb = null;
+    const spans = $('.dkr-tgl div span');
+    if (spans.length >= 2) {
+        const dateStr = $(spans[0]).text().trim();
+        const timeStr = $(spans[1]).text().trim().replace('.', ':');
+        const parts = dateStr.split(' ');
+        if (parts.length === 3) {
+            const [day, monthStr, year] = parts;
+            const month = months[monthStr];
+            if (day && month && year && timeStr) {
+                const isoString = `${year}-${month}-${day.padStart(2, '0')}T${timeStr}:00+07:00`;
+                webTimestamp = new Date(isoString);
+                todayStrFromWeb = `${year}-${month}-${day.padStart(2, '0')}`;
+            }
+        }
+    }
+
+    if (!webTimestamp) {
+        webTimestamp = new Date();
+        const dateQuery = await pool.query(`SELECT TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD') as today_str`);
+        todayStrFromWeb = dateQuery.rows[0].today_str;
+    }
+
+    $('div.dkr-harga1 .table-dkr tbody tr').each((i, el) => {
+        const name = $(el).find('img').attr('alt')?.trim();
+        const konsumen = $(el).find('.konsumen span').first().text().replace(/\./g, '').trim();
+        const buyback = $(el).find('.buyback span').first().text().replace(/\./g, '').trim();
+        const image = $(el).find('img').attr('src');
+        
+        if (name && konsumen && buyback) {
+            products.push({
+                name,
+                altName: null,
+                konsumen: parseInt(konsumen, 10),
+                buyback: parseInt(buyback, 10),
+                image: image ? `https://dinarkr.com/${image}` : null,
+                keterangan: 'Dinar Khoirur Rooziqiin'
+            });
+        }
+    });
+
+    $('.dkr-harga2-item').each((i, el) => {
+        const imgAlt = $(el).find('img').attr('alt');
+        let name = imgAlt ? imgAlt.trim() : '';
+        if ($(el).find('h4').length > 0) {
+            name = $(el).find('h4').text().replace(/\s+/g, ' ').trim();
+        }
+        
+        const konsumen = $(el).find('.harga span').first().text().replace(/\./g, '').trim();
+        const buyback = $(el).find('.buyback2 span').first().text().replace(/\./g, '').trim();
+        const image = $(el).find('img').attr('src');
+        
+        if (name && konsumen && buyback && name.toLowerCase() !== '10 dinar' && name.toLowerCase() !== '20 dinar') {
+            products.push({
+                name,
+                altName: null,
+                konsumen: parseInt(konsumen, 10),
+                buyback: parseInt(buyback, 10),
+                image: image ? `https://dinarkr.com/${image}` : null,
+                keterangan: 'Dinar Khoirur Rooziqiin'
+            });
+        }
+    });
+
+    return { products, webTimestamp, todayStrFromWeb };
+}
 
 const syncHargaDinar = async () => {
     try {
         console.log("Memulai sinkronisasi harga dinar...");
-        const response = await axios.get('https://dinarkr.com/main/harga-emas.php?action=dkrharga');
-        const $ = cheerio.load(response.data);
 
-        const products = [];
-
-        // Ambil timestamp dari website
-        let webTimestamp = null;
-        let todayStrFromWeb = null;
-        const spans = $('.dkr-tgl div span');
-        if (spans.length >= 2) {
-            const dateStr = $(spans[0]).text().trim(); // ex: "17 Agustus 2026"
-            const timeStr = $(spans[1]).text().trim().replace('.', ':'); // ex: "10:14"
-            
-            const parts = dateStr.split(' ');
-            if (parts.length === 3) {
-                const [day, monthStr, year] = parts;
-                const month = months[monthStr];
-                if (day && month && year && timeStr) {
-                    const isoString = `${year}-${month}-${day.padStart(2, '0')}T${timeStr}:00+07:00`;
-                    webTimestamp = new Date(isoString);
-                    todayStrFromWeb = `${year}-${month}-${day.padStart(2, '0')}`;
-                }
-            }
+        let scrapeResult;
+        try {
+            console.log("Mencoba mengambil data dari API resmi dinarkr.com/harga...");
+            scrapeResult = await fetchFromOfficialApi();
+            console.log("Berhasil mengambil data via API resmi.");
+        } catch (apiErr) {
+            console.warn("Gagal mengambil data dari API resmi, beralih ke HTML fallback:", apiErr.message);
+            scrapeResult = await fetchFromHtmlFallback();
         }
 
-        if (!webTimestamp) {
-            console.error("Gagal mem-parsing tanggal dari website, menggunakan waktu lokal");
-            webTimestamp = new Date();
-            const dateQuery = await pool.query(`SELECT TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD') as today_str`);
-            todayStrFromWeb = dateQuery.rows[0].today_str;
-        }
-
-        // 1. Ambil dinar standar
-        $('div.dkr-harga1 .table-dkr tbody tr').each((i, el) => {
-            const name = $(el).find('img').attr('alt').trim();
-            const konsumen = $(el).find('.konsumen span').first().text().replace(/\./g, '').trim();
-            const buyback = $(el).find('.buyback span').first().text().replace(/\./g, '').trim();
-            const image = $(el).find('img').attr('src');
-            
-            if (name && konsumen && buyback) {
-                products.push({
-                    name,
-                    konsumen: parseInt(konsumen, 10),
-                    buyback: parseInt(buyback, 10),
-                    image: `https://dinarkr.com/${image}`
-                });
-            }
-        });
-
-        // 2. Ambil paket dinar exclusive/luxury
-        $('.dkr-harga2-item').each((i, el) => {
-            const imgAlt = $(el).find('img').attr('alt');
-            let name = imgAlt ? imgAlt.trim() : '';
-            if ($(el).find('h4').length > 0) {
-                name = $(el).find('h4').text().replace(/\s+/g, ' ').trim();
-            }
-            
-            const konsumen = $(el).find('.harga span').first().text().replace(/\./g, '').trim();
-            const buyback = $(el).find('.buyback2 span').first().text().replace(/\./g, '').trim();
-            const image = $(el).find('img').attr('src');
-            
-            // Hindari duplikat "10 dinar" / "20 Dinar" yg sudah ada di tabel 1
-            if (name && konsumen && buyback && name.toLowerCase() !== '10 dinar' && name.toLowerCase() !== '20 dinar') {
-                products.push({
-                    name,
-                    konsumen: parseInt(konsumen, 10),
-                    buyback: parseInt(buyback, 10),
-                    image: `https://dinarkr.com/${image}`
-                });
-            }
-        });
-
-        console.log(`Berhasil mengambil ${products.length} produk dari website.`);
+        const { products, webTimestamp, todayStrFromWeb } = scrapeResult;
+        console.log(`Ditemukan ${products.length} produk dinar.`);
 
         let changedCount = 0;
 
-        // 3. Simpan ke database
         for (const prod of products) {
-            // Cek apakah produk sudah ada
-            const checkQuery = await pool.query('SELECT id, harga_konsumen, harga_buyback FROM produk_dinar WHERE nama = $1', [prod.name]);
-            
+            const checkQuery = await pool.query(
+                'SELECT id, harga_konsumen, harga_buyback FROM produk_dinar WHERE nama = $1 OR nama = $2',
+                [prod.name, prod.altName || prod.name]
+            );
+
             let idDinar;
 
             if (checkQuery.rows.length === 0) {
@@ -100,9 +155,10 @@ const syncHargaDinar = async () => {
                 const insertQuery = await pool.query(`
                     INSERT INTO produk_dinar (nama, harga_konsumen, harga_buyback, keterangan, gambar, jumlah_stok, terakhir_diperbarui)
                     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
-                `, [prod.name, prod.konsumen, prod.buyback, 'Scraped automatically', prod.image, 0, webTimestamp]);
+                `, [prod.name, prod.konsumen, prod.buyback, prod.keterangan || 'Dinar Khoirur Rooziqiin', prod.image, 0, webTimestamp]);
+                
                 idDinar = insertQuery.rows[0].id;
-                console.log(`Produk baru ditambahkan: ${prod.name}`);
+                console.log(`Produk baru ditambahkan: ${prod.name} (ID: ${idDinar})`);
                 changedCount++;
 
                 // Tambah riwayat harga pertama
@@ -115,9 +171,6 @@ const syncHargaDinar = async () => {
                 idDinar = checkQuery.rows[0].id;
                 const oldKonsumen = Number(checkQuery.rows[0].harga_konsumen);
                 const oldBuyback = Number(checkQuery.rows[0].harga_buyback);
-
-                // Gunakan tanggal dari website
-                const todayStr = todayStrFromWeb;
 
                 // Cek riwayat terakhir untuk id_dinar ini
                 const lastRiwayatQuery = await pool.query(`
@@ -133,25 +186,26 @@ const syncHargaDinar = async () => {
 
                 if (lastRiwayatQuery.rows.length > 0) {
                     const last = lastRiwayatQuery.rows[0];
-                    if (last.date_str === todayStr) {
+                    if (last.date_str === todayStrFromWeb) {
                         isNewDay = false;
                     }
                     if (Number(last.harga_konsumen) === prod.konsumen && Number(last.harga_buyback) === prod.buyback) {
                         isPriceChanged = false;
                     }
                 } else {
-                    // Jika belum ada riwayat sama sekali
                     isPriceChanged = true;
                 }
 
-                // Selalu update produk_dinar agar terakhir_diperbarui sesuai dengan waktu website (terverifikasi)
+                // Update data produk master
                 await pool.query(`
                     UPDATE produk_dinar 
-                    SET harga_konsumen = $1, harga_buyback = $2, gambar = $3, terakhir_diperbarui = $4
-                    WHERE id = $5
-                `, [prod.konsumen, prod.buyback, prod.image, webTimestamp, idDinar]);
+                    SET harga_konsumen = $1, harga_buyback = $2, 
+                        gambar = COALESCE($3, gambar), keterangan = COALESCE($4, keterangan),
+                        terakhir_diperbarui = $5
+                    WHERE id = $6
+                `, [prod.konsumen, prod.buyback, prod.image, prod.keterangan, webTimestamp, idDinar]);
 
-                // Tambah riwayat JIKA ini hari baru (walau harga sama) ATAU harga berubah di hari yang sama
+                // Tambah riwayat jika hari baru atau harga berubah
                 if (isNewDay || isPriceChanged) {
                     await pool.query(`
                         INSERT INTO riwayat_harga_dinar (id_dinar, harga_konsumen, harga_buyback, tanggal)
@@ -160,7 +214,7 @@ const syncHargaDinar = async () => {
 
                     changedCount++;
                     if (isPriceChanged) {
-                        console.log(`Harga berubah untuk ${prod.name}. Riwayat disimpan.`);
+                        console.log(`Harga berubah untuk ${prod.name} (${oldKonsumen.toLocaleString('id-ID')} -> ${prod.konsumen.toLocaleString('id-ID')}). Riwayat disimpan.`);
                     } else {
                         console.log(`Hari baru untuk ${prod.name}. Riwayat disimpan dengan harga tetap.`);
                     }
@@ -168,7 +222,7 @@ const syncHargaDinar = async () => {
             }
         }
 
-        console.log(`Selesai sinkronisasi harga dinar. ${changedCount} produk diupdate.`);
+        console.log(`Selesai sinkronisasi harga dinar. ${changedCount} riwayat/produk diperbarui.`);
         return { success: true, count: products.length, changed: changedCount };
 
     } catch (error) {
