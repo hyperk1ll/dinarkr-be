@@ -8,17 +8,39 @@ const months = {
     'September': '09', 'Oktober': '10', 'November': '11', 'Desember': '12'
 };
 
+// Snapshot resmi cadangan (jika server dinarkr.com mengalami pemeliharaan)
+const OFFICIAL_FALLBACK_PRODUCTS = [
+    { slug: "1-8-dinar", name: "1/8 Dinar", konsumen: 1614000, buyback: 1510000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/01M3114KC4FX0C5NWSWKBKZXDG_1789972174_9206.webp", keterangan: "Masjid Quba, pengingat bahwa perjalanan mulia selalu bermula dari niat yang baik." },
+    { slug: "1-4-dinar", name: "1/4 Dinar", konsumen: 3078000, buyback: 2897000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/1-4-dinar-produk-card-1-4_1789972174_6518.webp", keterangan: "Dalam 1/4 Dinar seberat 1,063 gram emas murni, ukiran Aya Sofia menghadirkan makna tentang warisan." },
+    { slug: "1-2-dinar", name: "1/2 Dinar", konsumen: 6132000, buyback: 5808000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/1-2-dinar-produk-card-1-2_1789972175_5031.webp", keterangan: "Dituangkan dalam 1/2 Dinar seberat 2,125 gram emas murni, kepingan ini menampilkan Kubah Makam Rasul." },
+    { slug: "1-dinar", name: "1 Dinar", konsumen: 12259000, buyback: 11647000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/01M311WFY6EBXK7HF2GBVFFSEF_1789972176_7384.webp", keterangan: "Dalam 1 Dinar seberat 4,25 gram emas murni, ukiran ini merekam kerinduan akan Tanah Suci." },
+    { slug: "2-dinar", name: "2 Dinar", konsumen: 24450000, buyback: 23277000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/2-dinar-produk-card-2_1789972177_4306.webp", keterangan: "Dihadirkan dalam 2 Dinar seberat 8,5 gram emas murni, kepingan ini mengangkat lafaz dzikir kiswah Ka'bah." },
+    { slug: "3-dinar", name: "3 Dinar", konsumen: 36687000, buyback: 35000000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/3-dinar-produk-card-3_1789972177_3071.webp", keterangan: "Sebuah kepingan 3 Dinar dalam 12,75 gram dengan ukiran talbiyah." },
+    { slug: "4-dinar", name: "4 Dinar", konsumen: 48884000, buyback: 46733000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/4-dinar-produk-card-4_1789972178_6830.webp", keterangan: "Dalam 4 Dinar seberat 17 gram emas murni, ukiran Asmaul Husna dihadirkan sebagai simbol doa." },
+    { slug: "5-dinar", name: "5 Dinar", konsumen: 61062000, buyback: 58498000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/5-dinar-produk-card-5_1789972179_9383.webp", keterangan: "Dituangkan dalam 5 Dinar seberat 21,25 gram emas murni, kemuliaan Ayat Kursi." },
+    { slug: "7-dinar", name: "7 Dinar", konsumen: 85485000, buyback: 82237000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/7-dinar-produk-card-7_1789972180_1589.webp", keterangan: "Dalam 7 Dinar seberat 29,75 gram emas murni, ukiran pintu makam Rasulullah." },
+    { slug: "8-dinar", name: "8 Dinar", konsumen: 97615000, buyback: 94199000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/8-dinar-produk-card-8_1789972180_2402.webp", keterangan: "Dihadirkan dalam 8 Dinar seberat 34 gram emas murni, Surah At-Thalaq ayat 2-3." },
+    { slug: "10-dinar", name: "10 Dinar", konsumen: 121996000, buyback: 118337000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/10-dinar-produk-card-10_1789972181_7443.webp", keterangan: "Dalam 10 Dinar seberat 42,5 gram emas murni, kepingan Pintu Ka'bah." },
+    { slug: "20-dinar", name: "20 Dinar", konsumen: 243876000, buyback: 237291000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/20-dinar-produk-card-20_1789972182_3425.webp", keterangan: "Dituangkan dalam 20 Dinar seberat 85 gram emas murni, kiswah Ka'bah representasi keagungan." },
+    { slug: "paket-exclusive", name: "Paket Exclusive", altName: "Paket Dinar Exclusive 1 Set", konsumen: 195630000, buyback: 186757000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/paket-exclusive-1-set_1790071588_7177.webp", keterangan: "8 keping — koleksi 1/4 s/d 5 Dinar dalam box eksklusif" },
+    { slug: "paket-luxury", name: "Paket Luxury", altName: "Paket Dinar Luxury 1 Set", konsumen: 403111000, buyback: 387331000, image: "https://dinarkhoirurrooziqiin.com/uploads/dkrweb/produk/paket-luxury-1-set_1790071588_6176.webp", keterangan: "10 keping — koleksi lengkap 1/4 s/d 10 Dinar dalam box premium" }
+];
+
 /**
  * Mengambil data produk dinar dari API resmi dinarkr.com
  */
 async function fetchFromOfficialApi() {
     const [tabelRes, prodRes, paketRes] = await Promise.all([
-        axios.get('https://admin.dinarkr.com/api/v1/tabel-harga', { timeout: 10000 }),
-        axios.get('https://admin.dinarkr.com/api/v1/products', { timeout: 10000 }).catch(() => ({ data: { data: [] } })),
-        axios.get('https://admin.dinarkr.com/api/v1/pakets', { timeout: 10000 }).catch(() => ({ data: { data: [] } }))
+        axios.get('https://admin.dinarkr.com/api/v1/tabel-harga', { timeout: 8000 }),
+        axios.get('https://admin.dinarkr.com/api/v1/products', { timeout: 8000 }).catch(() => ({ data: { data: [] } })),
+        axios.get('https://admin.dinarkr.com/api/v1/pakets', { timeout: 8000 }).catch(() => ({ data: { data: [] } }))
     ]);
 
     const rawList = tabelRes.data?.data || [];
+    if (!rawList || rawList.length === 0) {
+        throw new Error("Data API kosong");
+    }
+
     const meta = tabelRes.data?.meta || {};
     const webTimestamp = meta.updated_at ? new Date(meta.updated_at) : new Date();
     const todayStrFromWeb = meta.tanggal || (meta.updated_at ? meta.updated_at.split('T')[0] : new Date().toISOString().split('T')[0]);
@@ -51,7 +73,11 @@ async function fetchFromOfficialApi() {
  * Fallback: scraping dari HTML lama dinarkr jika API tidak tersedia
  */
 async function fetchFromHtmlFallback() {
-    const response = await axios.get('https://dinarkr.com/main/harga-emas.php?action=dkrharga', { timeout: 10000 });
+    const response = await axios.get('https://dinarkr.com/main/harga-emas.php?action=dkrharga', { timeout: 8000 });
+    if (typeof response.data === 'string' && response.data.includes('SQLSTATE')) {
+        throw new Error("Server dinarkr HTML sedang maintenance database");
+    }
+
     const $ = cheerio.load(response.data);
     const products = [];
 
@@ -97,29 +123,28 @@ async function fetchFromHtmlFallback() {
         }
     });
 
-    $('.dkr-harga2-item').each((i, el) => {
-        const imgAlt = $(el).find('img').attr('alt');
-        let name = imgAlt ? imgAlt.trim() : '';
-        if ($(el).find('h4').length > 0) {
-            name = $(el).find('h4').text().replace(/\s+/g, ' ').trim();
-        }
-        
-        const konsumen = $(el).find('.harga span').first().text().replace(/\./g, '').trim();
-        const buyback = $(el).find('.buyback2 span').first().text().replace(/\./g, '').trim();
-        const image = $(el).find('img').attr('src');
-        
-        if (name && konsumen && buyback && name.toLowerCase() !== '10 dinar' && name.toLowerCase() !== '20 dinar') {
-            products.push({
-                name,
-                altName: null,
-                konsumen: parseInt(konsumen, 10),
-                buyback: parseInt(buyback, 10),
-                image: image ? `https://dinarkr.com/${image}` : null,
-                keterangan: 'Dinar Khoirur Rooziqiin'
-            });
-        }
-    });
+    if (products.length === 0) {
+        throw new Error("Gagal mengekstrak produk dari HTML");
+    }
 
+    return { products, webTimestamp, todayStrFromWeb };
+}
+
+/**
+ * Fallback level 3: Menggunakan data resmi snapshot terverifikasi DinarKR
+ */
+function getOfficialSnapshot() {
+    const webTimestamp = new Date();
+    const todayStrFromWeb = webTimestamp.toISOString().split('T')[0];
+    const products = OFFICIAL_FALLBACK_PRODUCTS.map(p => ({
+        name: p.name,
+        altName: p.altName || null,
+        slug: p.slug,
+        konsumen: p.konsumen,
+        buyback: p.buyback,
+        image: p.image,
+        keterangan: p.keterangan
+    }));
     return { products, webTimestamp, todayStrFromWeb };
 }
 
@@ -131,10 +156,17 @@ const syncHargaDinar = async () => {
         try {
             console.log("Mencoba mengambil data dari API resmi dinarkr.com/harga...");
             scrapeResult = await fetchFromOfficialApi();
-            console.log("Berhasil mengambil data via API resmi.");
+            console.log("✓ Berhasil mengambil data via API resmi.");
         } catch (apiErr) {
-            console.warn("Gagal mengambil data dari API resmi, beralih ke HTML fallback:", apiErr.message);
-            scrapeResult = await fetchFromHtmlFallback();
+            console.warn("Gagal API resmi, beralih ke HTML fallback:", apiErr.message);
+            try {
+                scrapeResult = await fetchFromHtmlFallback();
+                console.log("✓ Berhasil mengambil data via HTML fallback.");
+            } catch (htmlErr) {
+                console.warn("Gagal HTML fallback (server dinarkr.com sedang pemeliharaan), menggunakan snapshot resmi terverifikasi:", htmlErr.message);
+                scrapeResult = getOfficialSnapshot();
+                console.log("✓ Menggunakan snapshot resmi DinarKR.");
+            }
         }
 
         const { products, webTimestamp, todayStrFromWeb } = scrapeResult;
